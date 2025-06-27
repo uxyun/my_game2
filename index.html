@@ -1,22 +1,20 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>トレーラー駐車試作1</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+  <title>トレーラー駐車ゲーム試作</title>
   <style>
-    body { margin: 0; background: #222; overflow: hidden; }
-    canvas { display: block; background: #111; }
+    body { margin: 0; background: #111; overflow: hidden; }
+    canvas { display: block; background: #222; }
     #controls {
       position: absolute; bottom: 10px; left: 0; right: 0;
       display: flex; justify-content: space-between; padding: 0 20px;
     }
-    .control-group {
-      display: flex; flex-direction: column; gap: 10px;
-    }
+    .control-group { display: flex; flex-direction: column; gap: 10px; }
     button {
-      width: 60px; height: 60px; font-size: 24px; border-radius: 8px;
-      background: #444; color: white; border: none;
+      width: 60px; height: 60px; font-size: 24px;
+      background: #444; color: #fff; border: none; border-radius: 8px;
     }
     button:active { background: #0af; }
   </style>
@@ -38,54 +36,68 @@
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 let w = window.innerWidth;
 let h = window.innerHeight;
 canvas.width = w;
 canvas.height = h;
 
+// 車両構造（仮）
 const tractor = {
-  x: w/2, y: h - 100,
-  angle: -Math.PI / 2, // 上向き
-  width: 60,
-  height: 30,
-  speed: 0,
-  steer: 0,
-  wheelBase: 40
+  x: w / 2, y: h - 120,
+  angle: -Math.PI / 2,
+  width: 60, height: 30,
+  speed: 0, steer: 0,
+  wheelBase: 40,
+  steerAngle: 0,
+  maxSteerAngle: Math.PI / 5 // 約35度
 };
 
 const trailer = {
   length: 80,
-  angle: -Math.PI / 2, // 同じく上向き
+  angle: -Math.PI / 2,
+  x: 0, y: 0
 };
+
+function updatePositions() {
+  // 前輪のハンドル角に制限を加える
+  tractor.steerAngle += tractor.steer * 0.04;
+  tractor.steerAngle = Math.max(-tractor.maxSteerAngle, Math.min(tractor.maxSteerAngle, tractor.steerAngle));
+
+  // 車両位置・角度更新
+  const beta = Math.tan(tractor.steerAngle) * (tractor.speed / tractor.wheelBase);
+  tractor.angle += beta;
+  tractor.x += Math.cos(tractor.angle) * tractor.speed;
+  tractor.y += Math.sin(tractor.angle) * tractor.speed;
+
+  // ピン位置（連結点）
+  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.wheelBase;
+  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.wheelBase;
+
+  // トレーラーの角度更新（追従回転）
+  const dx = pinX - trailer.x;
+  const dy = pinY - trailer.y;
+  const desired = Math.atan2(dy, dx);
+  trailer.angle += (desired - trailer.angle) * 0.1;
+
+  // トレーラー位置更新
+  trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
+  trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
+}
 
 function drawVehicle() {
   ctx.clearRect(0, 0, w, h);
 
-  // --- 駐車枠（右上） ---
+  // --- 駐車枠（横向き） ---
+  const totalLength = tractor.wheelBase + trailer.length;
   ctx.save();
   ctx.translate(w - 120, 100);
   ctx.rotate(Math.PI / 2); // 横向き
   ctx.strokeStyle = "#0f0";
-  ctx.strokeRect(-40, -20, 80, 40);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-totalLength / 2, -20, totalLength, 40);
   ctx.restore();
 
   // --- トレーラー ---
-  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.wheelBase;
-  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.wheelBase;
-
-  // トレーラーの向きを更新
-  const dx = pinX - trailer.x;
-  const dy = pinY - trailer.y;
-  const desiredAngle = Math.atan2(dy, dx);
-  const angleDiff = desiredAngle - trailer.angle;
-  trailer.angle += angleDiff * 0.1;
-
-  // トレーラーの位置を更新
-  trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
-  trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
-
-  // 描画
   ctx.save();
   ctx.translate(trailer.x, trailer.y);
   ctx.rotate(trailer.angle);
@@ -100,30 +112,35 @@ function drawVehicle() {
   ctx.fillStyle = "red";
   ctx.fillRect(-30, -15, 60, 30);
 
-  // タイヤ描画（左右4本）
-  ctx.fillStyle = "black";
+  // タイヤ描画
+  ctx.fillStyle = "#000";
   const tw = 6, th = 14;
+
+  // 前輪（ステア対応）
+  const steerOffset = Math.sin(tractor.steerAngle) * 10;
   for (let dx of [-20, 20]) {
-    for (let dy of [-12, 12]) {
-      ctx.fillRect(dx - tw/2, dy - th/2, tw, th);
-    }
+    ctx.save();
+    ctx.translate(dx, -12);
+    ctx.rotate(tractor.steerAngle);
+    ctx.fillRect(-tw/2, -th/2, tw, th);
+    ctx.restore();
   }
+
+  // 後輪（固定）
+  for (let dx of [-20, 20]) {
+    ctx.fillRect(dx - tw/2, 12 - th/2, tw, th);
+  }
+
   ctx.restore();
 }
 
 function update() {
-  // 前後移動
-  tractor.x += Math.cos(tractor.angle) * tractor.speed;
-  tractor.y += Math.sin(tractor.angle) * tractor.speed;
-
-  // ハンドル操作
-  tractor.angle += tractor.steer * tractor.speed * 0.05;
-
+  updatePositions();
   drawVehicle();
   requestAnimationFrame(update);
 }
 
-// --- 操作 ---
+// 操作イベント
 document.getElementById("forward").addEventListener("touchstart", () => tractor.speed = 2);
 document.getElementById("forward").addEventListener("touchend", () => tractor.speed = 0);
 document.getElementById("backward").addEventListener("touchstart", () => tractor.speed = -2);
