@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
-  <title>トレーラー駐車ゲーム（トレーラー初期位置修正）</title>
+  <title>トレーラー駐車ゲーム（トレーラー縦長連結修正）</title>
   <style>
     body {
       margin: 0; background: #111; overflow: hidden; color: #eee; font-family: sans-serif;
@@ -111,11 +111,15 @@ const trailer = {
   y: 0
 };
 
-// 初期位置セット（トラクタの後端中央）
+// 初期位置セット（トラクターの後端縦方向連結）
 function resetTrailerPosition() {
   trailer.angle = tractor.angle;
-  trailer.x = tractor.x - Math.cos(tractor.angle) * tractor.height / 2 - Math.cos(trailer.angle) * trailer.length / 2;
-  trailer.y = tractor.y - Math.sin(tractor.angle) * tractor.height / 2 - Math.sin(trailer.angle) * trailer.length / 2;
+  // トラクター後端中心座標
+  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
+  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
+  // トレーラー中心はピン位置から「トレーラー長さの半分」だけ後ろにずらす（縦方向）
+  trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
+  trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
 }
 
 resetTrailerPosition();
@@ -143,9 +147,11 @@ function updatePositions() {
   tractor.x += Math.cos(tractor.angle) * tractor.speed;
   tractor.y += Math.sin(tractor.angle) * tractor.speed;
 
+  // トラクター後端中心（ピン接続点）
   const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
   const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
 
+  // トレーラー角度はピン位置との角度差で滑らかに追従
   const dx = pinX - trailer.x;
   const dy = pinY - trailer.y;
   const desired = Math.atan2(dy, dx);
@@ -155,6 +161,7 @@ function updatePositions() {
   while (diff < -Math.PI) diff += 2 * Math.PI;
   trailer.angle += diff * 0.15;
 
+  // 連結位置は縦方向に（トレーラー長さ半分分）後ろへオフセット
   trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
   trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
 }
@@ -223,7 +230,7 @@ function drawVehicle() {
 
   ctx.restore();
 
-  // トラクタ本体（赤い縦長）
+  // トラクター本体（赤い縦長）
   ctx.save();
   ctx.translate(tractor.x, tractor.y);
   ctx.rotate(tractor.angle);
