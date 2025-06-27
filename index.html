@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>トレーラー駐車試作</title>
+  <style>
+    body { margin: 0; background: #222; overflow: hidden; }
+    canvas { display: block; background: #111; }
+    #controls {
+      position: absolute; bottom: 10px; left: 0; right: 0;
+      display: flex; justify-content: space-between; padding: 0 20px;
+    }
+    .control-group {
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    button {
+      width: 60px; height: 60px; font-size: 24px; border-radius: 8px;
+      background: #444; color: white; border: none;
+    }
+    button:active { background: #0af; }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="controls">
+  <div class="control-group">
+    <button id="forward">↑</button>
+    <button id="backward">↓</button>
+  </div>
+  <div class="control-group">
+    <button id="left">←</button>
+    <button id="right">→</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let w = window.innerWidth;
+let h = window.innerHeight;
+canvas.width = w;
+canvas.height = h;
+
+const tractor = {
+  x: w/2, y: h - 100,
+  angle: -Math.PI / 2, // 上向き
+  width: 60,
+  height: 30,
+  speed: 0,
+  steer: 0,
+  wheelBase: 40
+};
+
+const trailer = {
+  length: 80,
+  angle: -Math.PI / 2, // 同じく上向き
+};
+
+function drawVehicle() {
+  ctx.clearRect(0, 0, w, h);
+
+  // --- 駐車枠（右上） ---
+  ctx.save();
+  ctx.translate(w - 120, 100);
+  ctx.rotate(Math.PI / 2); // 横向き
+  ctx.strokeStyle = "#0f0";
+  ctx.strokeRect(-40, -20, 80, 40);
+  ctx.restore();
+
+  // --- トレーラー ---
+  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.wheelBase;
+  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.wheelBase;
+
+  // トレーラーの向きを更新
+  const dx = pinX - trailer.x;
+  const dy = pinY - trailer.y;
+  const desiredAngle = Math.atan2(dy, dx);
+  const angleDiff = desiredAngle - trailer.angle;
+  trailer.angle += angleDiff * 0.1;
+
+  // トレーラーの位置を更新
+  trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
+  trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
+
+  // 描画
+  ctx.save();
+  ctx.translate(trailer.x, trailer.y);
+  ctx.rotate(trailer.angle);
+  ctx.fillStyle = "#aaa";
+  ctx.fillRect(-40, -20, 80, 40);
+  ctx.restore();
+
+  // --- トラクタ本体 ---
+  ctx.save();
+  ctx.translate(tractor.x, tractor.y);
+  ctx.rotate(tractor.angle);
+  ctx.fillStyle = "red";
+  ctx.fillRect(-30, -15, 60, 30);
+
+  // タイヤ描画（左右4本）
+  ctx.fillStyle = "black";
+  const tw = 6, th = 14;
+  for (let dx of [-20, 20]) {
+    for (let dy of [-12, 12]) {
+      ctx.fillRect(dx - tw/2, dy - th/2, tw, th);
+    }
+  }
+  ctx.restore();
+}
+
+function update() {
+  // 前後移動
+  tractor.x += Math.cos(tractor.angle) * tractor.speed;
+  tractor.y += Math.sin(tractor.angle) * tractor.speed;
+
+  // ハンドル操作
+  tractor.angle += tractor.steer * tractor.speed * 0.05;
+
+  drawVehicle();
+  requestAnimationFrame(update);
+}
+
+// --- 操作 ---
+document.getElementById("forward").addEventListener("touchstart", () => tractor.speed = 2);
+document.getElementById("forward").addEventListener("touchend", () => tractor.speed = 0);
+document.getElementById("backward").addEventListener("touchstart", () => tractor.speed = -2);
+document.getElementById("backward").addEventListener("touchend", () => tractor.speed = 0);
+
+document.getElementById("left").addEventListener("touchstart", () => tractor.steer = -1);
+document.getElementById("left").addEventListener("touchend", () => tractor.steer = 0);
+document.getElementById("right").addEventListener("touchstart", () => tractor.steer = 1);
+document.getElementById("right").addEventListener("touchend", () => tractor.steer = 0);
+
+update();
+</script>
+</body>
+</html>
