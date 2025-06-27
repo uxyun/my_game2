@@ -68,34 +68,34 @@ const h = canvas.height;
 // トラクター（赤）
 const tractor = {
   x: w / 2,
-  y: h - 200,
+  y: h - 250,
   width: 40,
   height: 80,
   angle: -Math.PI / 2,
   speed: 0,
-  steer: 0,
-  wheelBase: 60,
   steerAngle: 0,
-  maxSteerAngle: Math.PI / 6
+  maxSteerAngle: Math.PI / 6,
+  wheelBase: 60
 };
 
 // トレーラー（グレー）
 const trailer = {
+  x: 0,
+  y: 0,
   width: 40,
   height: 180,
-  angle: -Math.PI / 2,
-  x: 0,
-  y: 0
+  angle: -Math.PI / 2
 };
 
-function resetTrailerPosition() {
+function resetTrailer() {
   const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
   const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
+
   trailer.angle = tractor.angle;
   trailer.x = pinX - Math.cos(trailer.angle) * trailer.height / 2;
   trailer.y = pinY - Math.sin(trailer.angle) * trailer.height / 2;
 }
-resetTrailerPosition();
+resetTrailer();
 
 // 入力
 let input = {
@@ -105,7 +105,7 @@ let input = {
   right: false
 };
 
-// 操作ボタン
+// 操作
 document.getElementById("forward").addEventListener("touchstart", () => input.forward = true);
 document.getElementById("forward").addEventListener("touchend", () => input.forward = false);
 document.getElementById("backward").addEventListener("touchstart", () => input.backward = true);
@@ -116,7 +116,7 @@ document.getElementById("right").addEventListener("touchstart", () => input.righ
 document.getElementById("right").addEventListener("touchend", () => input.right = false);
 
 function update() {
-  // 入力処理
+  // 入力反映
   tractor.speed = 0;
   if (input.forward) tractor.speed = -2;
   if (input.backward) tractor.speed = 2;
@@ -125,17 +125,17 @@ function update() {
   else if (input.right) tractor.steerAngle = tractor.maxSteerAngle;
   else tractor.steerAngle = 0;
 
-  // トラクターの角度更新
+  // トラクターの回転と移動
   const beta = Math.tan(tractor.steerAngle) * (tractor.speed / tractor.wheelBase);
   tractor.angle += beta;
   tractor.x += Math.cos(tractor.angle) * tractor.speed;
   tractor.y += Math.sin(tractor.angle) * tractor.speed;
 
-  // ピンの位置（トラクター後端）
+  // トラクターのピン位置（連結点）
   const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
   const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
 
-  // トレーラーの追従（角度補正）
+  // トレーラーの角度調整（自然に折れ曲がる）
   const dx = pinX - trailer.x;
   const dy = pinY - trailer.y;
   const desiredAngle = Math.atan2(dy, dx);
@@ -144,7 +144,7 @@ function update() {
   while (diff < -Math.PI) diff += 2 * Math.PI;
   trailer.angle += diff * 0.1;
 
-  // トレーラーの位置更新
+  // トレーラーの位置更新（後ろ側）
   trailer.x = pinX - Math.cos(trailer.angle) * trailer.height / 2;
   trailer.y = pinY - Math.sin(trailer.angle) * trailer.height / 2;
 
@@ -155,7 +155,7 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, w, h);
 
-  // トレーラー
+  // トレーラー（グレー）
   ctx.save();
   ctx.translate(trailer.x, trailer.y);
   ctx.rotate(trailer.angle);
@@ -163,7 +163,7 @@ function draw() {
   ctx.fillRect(-trailer.width / 2, -trailer.height / 2, trailer.width, trailer.height);
   ctx.restore();
 
-  // トラクター
+  // トラクター（赤）
   ctx.save();
   ctx.translate(tractor.x, tractor.y);
   ctx.rotate(tractor.angle);
@@ -172,7 +172,7 @@ function draw() {
   ctx.restore();
 }
 
-// 開始
+// 実行
 update();
 </script>
 </body>
