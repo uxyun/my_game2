@@ -2,39 +2,72 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-  <title>トレーラー駐車ゲーム（トレーラー縦向き＆連結修正）</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+  <title>トレーラー駐車ゲーム（iPhone11サイズ最適化）</title>
   <style>
-    body { margin: 0; background: #111; overflow: hidden; color: #eee; font-family: sans-serif;}
-    canvas { display: block; background: #222; }
-    #controls {
-      position: absolute; bottom: 10px; left: 0; right: 0;
-      display: flex; justify-content: space-between; padding: 0 20px;
-      user-select: none;
+    body {
+      margin: 0; background: #111; overflow: hidden; color: #eee; font-family: sans-serif;
+      /* iPhone11相当の縦長固定 */
+      width: 414px;
+      height: 896px;
+      margin: 0 auto;
+      position: relative;
     }
-    .control-group { display: flex; flex-direction: column; gap: 10px; }
+    canvas {
+      display: block;
+      background: #222;
+      width: 414px;
+      height: 896px;
+      image-rendering: pixelated;
+    }
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 20px;
+      user-select: none;
+      width: 414px;
+      margin: 0 auto;
+    }
+    .control-group {
+      display: flex; flex-direction: column; gap: 10px;
+    }
     button {
       width: 60px; height: 60px; font-size: 24px;
       background: #444; color: #fff; border: none; border-radius: 8px;
     }
-    button:active { background: #0af; }
+    button:active {
+      background: #0af;
+    }
     #status {
       position: absolute;
-      top: 10px; left: 50%; transform: translateX(-50%);
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
       font-size: 24px;
       font-weight: bold;
       text-shadow: 0 0 6px #0f0;
+      width: 414px;
+      text-align: center;
+      pointer-events: none;
     }
     #timer {
       position: absolute;
-      top: 50px; left: 50%; transform: translateX(-50%);
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
       font-size: 18px;
       color: #afa;
+      width: 414px;
+      text-align: center;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
-<canvas id="game"></canvas>
+<canvas id="game" width="414" height="896"></canvas>
 <div id="status"></div>
 <div id="timer"></div>
 
@@ -52,19 +85,20 @@
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-let w = window.innerWidth;
-let h = window.innerHeight;
-canvas.width = w;
-canvas.height = h;
+const w = canvas.width;  // 414
+const h = canvas.height; // 896
 
 const status = document.getElementById("status");
 const timerEl = document.getElementById("timer");
 
 const tractor = {
-  x: w / 2, y: h - 120,
+  x: w / 2,
+  y: h - 120,
   angle: -Math.PI / 2,
-  width: 30, height: 60,
-  speed: 0, steer: 0,
+  width: 30,
+  height: 60,
+  speed: 0,
+  steer: 0,
   wheelBase: 40,
   steerAngle: 0,
   maxSteerAngle: Math.PI / 5 // 約35度
@@ -74,12 +108,13 @@ const trailer = {
   width: 40,
   length: 80,
   angle: -Math.PI / 2,
-  x: 0, y: 0
+  x: 0,
+  y: 0
 };
 
 // 駐車枠パラメータ
 const parking = {
-  x: w - (tractor.wheelBase + trailer.length)/2 - 30,
+  x: w - (tractor.wheelBase + trailer.length) / 2 - 30,
   y: h / 2,
   width: tractor.wheelBase + trailer.length,
   height: 40,
@@ -111,8 +146,8 @@ function updatePositions() {
   const desired = Math.atan2(dy, dx);
   // 角度差を-π〜πに正規化
   let diff = desired - trailer.angle;
-  while (diff > Math.PI) diff -= 2*Math.PI;
-  while (diff < -Math.PI) diff += 2*Math.PI;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
   trailer.angle += diff * 0.15;
 
   // トレーラー位置はピン位置から、トレーラー長さの半分だけ逆向きにオフセット
@@ -127,7 +162,7 @@ function pointInRect(px, py, rx, ry, rw, rh, rAngle) {
   const dy = py - ry;
   const localX = dx * cosA - dy * sinA;
   const localY = dx * sinA + dy * cosA;
-  return localX >= -rw/2 && localX <= rw/2 && localY >= -rh/2 && localY <= rh/2;
+  return localX >= -rw / 2 && localX <= rw / 2 && localY >= -rh / 2 && localY <= rh / 2;
 }
 
 function checkParking() {
@@ -143,8 +178,8 @@ function checkParking() {
 }
 
 function normalizeAngle(angle) {
-  while (angle > Math.PI) angle -= 2*Math.PI;
-  while (angle < -Math.PI) angle += 2*Math.PI;
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
   return angle;
 }
 
@@ -157,7 +192,7 @@ function drawVehicle() {
   ctx.rotate(parking.angle);
   ctx.strokeStyle = "#0f0";
   ctx.lineWidth = 2;
-  ctx.strokeRect(-parking.width/2, -parking.height/2, parking.width, parking.height);
+  ctx.strokeRect(-parking.width / 2, -parking.height / 2, parking.width, parking.height);
   ctx.restore();
 
   // トレーラー（縦長）
@@ -165,7 +200,7 @@ function drawVehicle() {
   ctx.translate(trailer.x, trailer.y);
   ctx.rotate(trailer.angle);
   ctx.fillStyle = "#aaa";
-  ctx.fillRect(-trailer.width/2, -trailer.length/2, trailer.width, trailer.length);
+  ctx.fillRect(-trailer.width / 2, -trailer.length / 2, trailer.width, trailer.length);
 
   // トレーラータイヤ（左右２本ずつ、前後に）
   ctx.fillStyle = "#000";
@@ -175,11 +210,11 @@ function drawVehicle() {
 
   // 前輪（上端両端）
   for (let dx of [-wHalf + 4, wHalf - 4]) {
-    ctx.fillRect(dx - tw/2, -lHalf + 4 - th/2, tw, th);
+    ctx.fillRect(dx - tw / 2, -lHalf + 4 - th / 2, tw, th);
   }
   // 後輪（下端両端）
   for (let dx of [-wHalf + 4, wHalf - 4]) {
-    ctx.fillRect(dx - tw/2, lHalf - 4 - th/2, tw, th);
+    ctx.fillRect(dx - tw / 2, lHalf - 4 - th / 2, tw, th);
   }
 
   ctx.restore();
@@ -189,26 +224,26 @@ function drawVehicle() {
   ctx.translate(tractor.x, tractor.y);
   ctx.rotate(tractor.angle);
   ctx.fillStyle = "red";
-  ctx.fillRect(-tractor.width/2, -tractor.height/2, tractor.width, tractor.height);
+  ctx.fillRect(-tractor.width / 2, -tractor.height / 2, tractor.width, tractor.height);
 
   // タイヤ
   ctx.fillStyle = "#000";
-  const tw = 6, th = 12;
-  const wHalf = tractor.width / 2;
-  const hHalf = tractor.height / 2;
+  const tw2 = 6, th2 = 12;
+  const wHalf2 = tractor.width / 2;
+  const hHalf2 = tractor.height / 2;
 
   // 前輪（上端両端）ステア角反映
-  for (let dx of [-wHalf + 4, wHalf - 4]) {
+  for (let dx of [-wHalf2 + 4, wHalf2 - 4]) {
     ctx.save();
-    ctx.translate(dx, -hHalf + 4);
+    ctx.translate(dx, -hHalf2 + 4);
     ctx.rotate(tractor.steerAngle);
-    ctx.fillRect(-tw/2, -th/2, tw, th);
+    ctx.fillRect(-tw2 / 2, -th2 / 2, tw2, th2);
     ctx.restore();
   }
 
   // 後輪（下端両端）固定
-  for (let dx of [-wHalf + 4, wHalf - 4]) {
-    ctx.fillRect(dx - tw/2, hHalf - 4 - th/2, tw, th);
+  for (let dx of [-wHalf2 + 4, wHalf2 - 4]) {
+    ctx.fillRect(dx - tw2 / 2, hHalf2 - 4 - th2 / 2, tw2, th2);
   }
 
   ctx.restore();
