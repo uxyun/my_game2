@@ -22,8 +22,13 @@
       left: 0;
       width: 100%;
       display: flex;
-      justify-content: center;
-      gap: 40px;
+      justify-content: space-around;
+      flex-wrap: wrap;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     button {
       width: 80px;
@@ -41,9 +46,16 @@
 </head>
 <body>
 <canvas id="game" width="414" height="896"></canvas>
+
 <div id="controls">
-  <button id="forward">↑</button>
-  <button id="backward">↓</button>
+  <div class="control-group">
+    <button id="forward">↑</button>
+    <button id="backward">↓</button>
+  </div>
+  <div class="control-group">
+    <button id="left">←</button>
+    <button id="right">→</button>
+  </div>
 </div>
 
 <script>
@@ -59,26 +71,82 @@ const tractor = {
   y: h - 200,
   width: 40,
   height: 80,
-  color: "red"
+  angle: -Math.PI / 2,
+  speed: 0,
+  steer: 0,
+  wheelBase: 60,
+  steerAngle: 0,
+  maxSteerAngle: Math.PI / 6
 };
 
 // トレーラー（グレー）
 const trailer = {
   width: 40,
   height: 180,
-  color: "gray"
+  angle: -Math.PI / 2,
+  x: 0,
+  y: 0
 };
 
-// 移動速度
-let speed = 0;
+function resetTrailerPosition() {
+  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
+  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
+  trailer.angle = tractor.angle;
+  trailer.x = pinX - Math.cos(trailer.angle) * trailer.height / 2;
+  trailer.y = pinY - Math.sin(trailer.angle) * trailer.height / 2;
+}
+resetTrailerPosition();
+
+// 入力
+let input = {
+  forward: false,
+  backward: false,
+  left: false,
+  right: false
+};
+
+// 操作ボタン
+document.getElementById("forward").addEventListener("touchstart", () => input.forward = true);
+document.getElementById("forward").addEventListener("touchend", () => input.forward = false);
+document.getElementById("backward").addEventListener("touchstart", () => input.backward = true);
+document.getElementById("backward").addEventListener("touchend", () => input.backward = false);
+document.getElementById("left").addEventListener("touchstart", () => input.left = true);
+document.getElementById("left").addEventListener("touchend", () => input.left = false);
+document.getElementById("right").addEventListener("touchstart", () => input.right = true);
+document.getElementById("right").addEventListener("touchend", () => input.right = false);
 
 function update() {
-  // y方向に移動
-  tractor.y += speed;
+  // 入力処理
+  tractor.speed = 0;
+  if (input.forward) tractor.speed = -2;
+  if (input.backward) tractor.speed = 2;
 
-  // トレーラーの位置をトラクターの後ろに接続
-  trailer.x = tractor.x;
-  trailer.y = tractor.y + tractor.height / 2 + trailer.height / 2;
+  if (input.left) tractor.steerAngle = -tractor.maxSteerAngle;
+  else if (input.right) tractor.steerAngle = tractor.maxSteerAngle;
+  else tractor.steerAngle = 0;
+
+  // トラクターの角度更新
+  const beta = Math.tan(tractor.steerAngle) * (tractor.speed / tractor.wheelBase);
+  tractor.angle += beta;
+  tractor.x += Math.cos(tractor.angle) * tractor.speed;
+  tractor.y += Math.sin(tractor.angle) * tractor.speed;
+
+  // ピンの位置（トラクター後端）
+  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
+  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
+
+  // トレーラーの追従（角度補正）
+  const dx = pinX - trailer.x;
+  const dy = pinY - trailer.y;
+  const desiredAngle = Math.atan2(dy, dx);
+  let diff = desiredAngle - trailer.angle;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  trailer.angle += diff * 0.1;
+
+  // トレーラーの位置更新
+  trailer.x = pinX - Math.cos(trailer.angle) * trailer.height / 2;
+  trailer.y = pinY - Math.sin(trailer.angle) * trailer.height / 2;
 
   draw();
   requestAnimationFrame(update);
@@ -88,19 +156,21 @@ function draw() {
   ctx.clearRect(0, 0, w, h);
 
   // トレーラー
-  ctx.fillStyle = trailer.color;
-  ctx.fillRect(trailer.x - trailer.width / 2, trailer.y - trailer.height / 2, trailer.width, trailer.height);
+  ctx.save();
+  ctx.translate(trailer.x, trailer.y);
+  ctx.rotate(trailer.angle);
+  ctx.fillStyle = "gray";
+  ctx.fillRect(-trailer.width / 2, -trailer.height / 2, trailer.width, trailer.height);
+  ctx.restore();
 
   // トラクター
-  ctx.fillStyle = tractor.color;
-  ctx.fillRect(tractor.x - tractor.width / 2, tractor.y - tractor.height / 2, tractor.width, tractor.height);
+  ctx.save();
+  ctx.translate(tractor.x, tractor.y);
+  ctx.rotate(tractor.angle);
+  ctx.fillStyle = "red";
+  ctx.fillRect(-tractor.width / 2, -tractor.height / 2, tractor.width, tractor.height);
+  ctx.restore();
 }
-
-// 操作
-document.getElementById("forward").addEventListener("touchstart", () => speed = -2);
-document.getElementById("forward").addEventListener("touchend", () => speed = 0);
-document.getElementById("backward").addEventListener("touchstart", () => speed = 2);
-document.getElementById("backward").addEventListener("touchend", () => speed = 0);
 
 // 開始
 update();
