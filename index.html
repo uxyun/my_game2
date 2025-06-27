@@ -1,69 +1,69 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
-  <title>トレーラー駐車ゲーム（トレーラー縦長連結修正）</title>
-  <style>
-    body {
-      margin: 0; background: #111; overflow: hidden; color: #eee; font-family: sans-serif;
-      width: 414px;
-      height: 896px;
-      margin: 0 auto;
-      position: relative;
-    }
-    canvas {
-      display: block;
-      background: #222;
-      width: 414px;
-      height: 896px;
-      image-rendering: pixelated;
-    }
-    #controls {
-      position: absolute;
-      bottom: 10px;
-      left: 0; right: 0;
-      display: flex;
-      justify-content: space-between;
-      padding: 0 20px;
-      user-select: none;
-      width: 414px;
-      margin: 0 auto;
-    }
-    .control-group {
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    button {
-      width: 60px; height: 60px; font-size: 24px;
-      background: #444; color: #fff; border: none; border-radius: 8px;
-    }
-    button:active {
-      background: #0af;
-    }
-    #status {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 24px;
-      font-weight: bold;
-      text-shadow: 0 0 6px #0f0;
-      width: 414px;
-      text-align: center;
-      pointer-events: none;
-    }
-    #timer {
-      position: absolute;
-      top: 50px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 18px;
-      color: #afa;
-      width: 414px;
-      text-align: center;
-      pointer-events: none;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+<title>トレーラー駐車ゲーム（トレーラー横長回転版）</title>
+<style>
+  body {
+    margin: 0; background: #111; overflow: hidden; color: #eee; font-family: sans-serif;
+    width: 414px;
+    height: 896px;
+    margin: 0 auto;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    background: #222;
+    width: 414px;
+    height: 896px;
+    image-rendering: pixelated;
+  }
+  #controls {
+    position: absolute;
+    bottom: 10px;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+    user-select: none;
+    width: 414px;
+    margin: 0 auto;
+  }
+  .control-group {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  button {
+    width: 60px; height: 60px; font-size: 24px;
+    background: #444; color: #fff; border: none; border-radius: 8px;
+  }
+  button:active {
+    background: #0af;
+  }
+  #status {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 0 0 6px #0f0;
+    width: 414px;
+    text-align: center;
+    pointer-events: none;
+  }
+  #timer {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    color: #afa;
+    width: 414px;
+    text-align: center;
+    pointer-events: none;
+  }
+</style>
 </head>
 <body>
 <canvas id="game" width="414" height="896"></canvas>
@@ -103,9 +103,10 @@ const tractor = {
   maxSteerAngle: Math.PI / 5
 };
 
+// トレーラーは横長（幅80、高さ40）に設定
 const trailer = {
-  width: 40,
-  length: 80,
+  width: 80,
+  length: 40,
   angle: -Math.PI / 2,
   x: 0,
   y: 0
@@ -114,10 +115,9 @@ const trailer = {
 // 初期位置セット（トラクターの後端縦方向連結）
 function resetTrailerPosition() {
   trailer.angle = tractor.angle;
-  // トラクター後端中心座標
   const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
   const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
-  // トレーラー中心はピン位置から「トレーラー長さの半分」だけ後ろにずらす（縦方向）
+  // 横長トレーラーなので長さ方向は width の方に合わせる（横方向）
   trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
   trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
 }
@@ -125,9 +125,9 @@ function resetTrailerPosition() {
 resetTrailerPosition();
 
 const parking = {
-  x: w - (tractor.wheelBase + trailer.length) / 2 - 30,
+  x: w - (tractor.wheelBase + trailer.width) / 2 - 30,
   y: h / 2,
-  width: tractor.wheelBase + trailer.length,
+  width: tractor.wheelBase + trailer.width,
   height: 40,
   angle: 0
 };
@@ -147,11 +147,9 @@ function updatePositions() {
   tractor.x += Math.cos(tractor.angle) * tractor.speed;
   tractor.y += Math.sin(tractor.angle) * tractor.speed;
 
-  // トラクター後端中心（ピン接続点）
   const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
   const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
 
-  // トレーラー角度はピン位置との角度差で滑らかに追従
   const dx = pinX - trailer.x;
   const dy = pinY - trailer.y;
   const desired = Math.atan2(dy, dx);
@@ -161,7 +159,6 @@ function updatePositions() {
   while (diff < -Math.PI) diff += 2 * Math.PI;
   trailer.angle += diff * 0.15;
 
-  // 連結位置は縦方向に（トレーラー長さ半分分）後ろへオフセット
   trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
   trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
 }
@@ -206,31 +203,31 @@ function drawVehicle() {
   ctx.strokeRect(-parking.width / 2, -parking.height / 2, parking.width, parking.height);
   ctx.restore();
 
-  // トレーラー（縦長）
+  // トレーラー（横長に90度回転させて表示）
   ctx.save();
   ctx.translate(trailer.x, trailer.y);
-  ctx.rotate(trailer.angle);
+  ctx.rotate(trailer.angle + Math.PI / 2); // 90度足す
   ctx.fillStyle = "#aaa";
-  ctx.fillRect(-trailer.width / 2, -trailer.length / 2, trailer.width, trailer.length);
+  ctx.fillRect(-trailer.length / 2, -trailer.width / 2, trailer.length, trailer.width);
 
-  // トレーラータイヤ（左右２本ずつ、前後に）
+  // タイヤ
   ctx.fillStyle = "#000";
   const tw = 6, th = 12;
-  const wHalf = trailer.width / 2;
-  const lHalf = trailer.length / 2;
+  const wHalf = trailer.length / 2;
+  const lHalf = trailer.width / 2;
 
-  // 前輪（上端両端）
+  // 前輪（横長の短辺側に2本）
   for (let dx of [-wHalf + 4, wHalf - 4]) {
     ctx.fillRect(dx - tw / 2, -lHalf + 4 - th / 2, tw, th);
   }
-  // 後輪（下端両端）
+  // 後輪（横長の短辺側に2本）
   for (let dx of [-wHalf + 4, wHalf - 4]) {
     ctx.fillRect(dx - tw / 2, lHalf - 4 - th / 2, tw, th);
   }
 
   ctx.restore();
 
-  // トラクター本体（赤い縦長）
+  // トラクター（赤い縦長）
   ctx.save();
   ctx.translate(tractor.x, tractor.y);
   ctx.rotate(tractor.angle);
