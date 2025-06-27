@@ -1,16 +1,14 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>トレーラー駐車ゲーム</title>
   <style>
     body {
       margin: 0;
       background: #111;
       overflow: hidden;
-      color: #eee;
-      font-family: sans-serif;
     }
     canvas {
       display: block;
@@ -20,261 +18,92 @@
     }
     #controls {
       position: absolute;
-      bottom: 10px;
+      bottom: 20px;
       left: 0;
-      right: 0;
+      width: 100%;
       display: flex;
-      justify-content: space-between;
-      padding: 0 20px;
-      user-select: none;
-      width: 414px;
-      margin: 0 auto;
-    }
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      justify-content: center;
+      gap: 40px;
     }
     button {
-      width: 60px;
+      width: 80px;
       height: 60px;
-      font-size: 24px;
-      background: #444;
-      color: #fff;
+      font-size: 20px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
+      background-color: #444;
+      color: white;
     }
     button:active {
-      background: #0af;
-    }
-    #status {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 24px;
-      font-weight: bold;
-      text-shadow: 0 0 6px #0f0;
-      width: 414px;
-      text-align: center;
-      pointer-events: none;
-    }
-    #timer {
-      position: absolute;
-      top: 50px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 18px;
-      color: #afa;
-      width: 414px;
-      text-align: center;
-      pointer-events: none;
+      background-color: #0af;
     }
   </style>
 </head>
 <body>
 <canvas id="game" width="414" height="896"></canvas>
-<div id="status"></div>
-<div id="timer"></div>
-
-<!-- 操作ボタン -->
 <div id="controls">
-  <div class="control-group">
-    <button id="forward">↑</button>
-    <button id="backward">↓</button>
-  </div>
-  <div class="control-group" style="flex-direction: column;">
-    <button id="right">→</button>
-    <button id="left">←</button>
-  </div>
+  <button id="forward">↑</button>
+  <button id="backward">↓</button>
 </div>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+
 const w = canvas.width;
 const h = canvas.height;
 
-const status = document.getElementById("status");
-const timerEl = document.getElementById("timer");
-
+// トラクター（赤）
 const tractor = {
   x: w / 2,
-  y: h - 150,
-  angle: -Math.PI / 2,
-  width: 30,
-  height: 60,
-  speed: 0,
-  steer: 0,
-  wheelBase: 40,
-  steerAngle: 0,
-  maxSteerAngle: Math.PI / 5
-};
-
-const trailer = {
-  width: 30,
-  length: 80, // ← 縦方向に長い（縦長トレーラー）
-  angle: -Math.PI / 2,
-  x: 0,
-  y: 0
-};
-
-function resetTrailerPosition() {
-  trailer.angle = tractor.angle;
-  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
-  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
-  trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
-  trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
-}
-
-resetTrailerPosition();
-
-const parking = {
-  x: w - 150,
-  y: h / 3,
+  y: h - 200,
   width: 40,
-  height: 140,
-  angle: -Math.PI / 2  // ← 画面に対して縦向き（上方向）
+  height: 80,
+  color: "red"
 };
 
-let startTime = null;
-let elapsedTime = 0;
-let parked = false;
+// トレーラー（グレー）
+const trailer = {
+  width: 40,
+  height: 120,
+  color: "gray"
+};
 
-function updatePositions() {
-  if (parked) return;
+// 移動速度
+let speed = 0;
 
-  tractor.steerAngle += tractor.steer * 0.04;
-  tractor.steerAngle = Math.max(-tractor.maxSteerAngle, Math.min(tractor.maxSteerAngle, tractor.steerAngle));
+function update() {
+  // y方向に移動
+  tractor.y += speed;
 
-  const beta = Math.tan(tractor.steerAngle) * (tractor.speed / tractor.wheelBase);
-  tractor.angle += beta;
-  tractor.x += Math.cos(tractor.angle) * tractor.speed;
-  tractor.y += Math.sin(tractor.angle) * tractor.speed;
+  // トレーラーの位置をトラクターの後ろに接続
+  trailer.x = tractor.x;
+  trailer.y = tractor.y + tractor.height / 2 + trailer.height / 2;
 
-  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
-  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
-
-  const dx = pinX - trailer.x;
-  const dy = pinY - trailer.y;
-  const desired = Math.atan2(dy, dx);
-
-  let diff = desired - trailer.angle;
-  while (diff > Math.PI) diff -= 2 * Math.PI;
-  while (diff < -Math.PI) diff += 2 * Math.PI;
-  trailer.angle += diff * 0.15;
-
-  trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
-  trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
-}
-
-function pointInRect(px, py, rx, ry, rw, rh, rAngle) {
-  const cosA = Math.cos(-rAngle);
-  const sinA = Math.sin(-rAngle);
-  const dx = px - rx;
-  const dy = py - ry;
-  const localX = dx * cosA - dy * sinA;
-  const localY = dx * sinA + dy * cosA;
-  return localX >= -rw / 2 && localX <= rw / 2 && localY >= -rh / 2 && localY <= rh / 2;
-}
-
-function checkParking() {
-  const angleDiffTractor = Math.abs(normalizeAngle(tractor.angle - parking.angle));
-  const angleDiffTrailer = Math.abs(normalizeAngle(trailer.angle - parking.angle));
-  const degLimit = 10 * Math.PI / 180;
-
-  if (angleDiffTractor > degLimit || angleDiffTrailer > degLimit) return false;
-  if (!pointInRect(tractor.x, tractor.y, parking.x, parking.y, parking.width, parking.height, parking.angle)) return false;
-  if (!pointInRect(trailer.x, trailer.y, parking.x, parking.y, parking.width, parking.height, parking.angle)) return false;
-
-  return true;
-}
-
-function normalizeAngle(angle) {
-  while (angle > Math.PI) angle -= 2 * Math.PI;
-  while (angle < -Math.PI) angle += 2 * Math.PI;
-  return angle;
-}
-
-function drawVehicle() {
-  ctx.clearRect(0, 0, w, h);
-
-  // 駐車枠
-  ctx.save();
-  ctx.translate(parking.x, parking.y);
-  ctx.rotate(parking.angle);
-  ctx.strokeStyle = "#0f0";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(-parking.width / 2, -parking.height / 2, parking.width, parking.height);
-  ctx.restore();
-
-  // トレーラー（グレー）
-  ctx.save();
-  ctx.translate(trailer.x, trailer.y);
-  ctx.rotate(trailer.angle);
-  ctx.fillStyle = "#aaa";
-  ctx.fillRect(-trailer.width / 2, -trailer.length / 2, trailer.width, trailer.length);
-  ctx.restore();
-
-  // トラクター（赤）
-  ctx.save();
-  ctx.translate(tractor.x, tractor.y);
-  ctx.rotate(tractor.angle);
-  ctx.fillStyle = "red";
-  ctx.fillRect(-tractor.width / 2, -tractor.height / 2, tractor.width, tractor.height);
-
-  // タイヤ
-  ctx.fillStyle = "#000";
-  const tw = 6, th = 12;
-  for (let dx of [-tractor.width / 2 + 4, tractor.width / 2 - 4 - tw]) {
-    ctx.save();
-    ctx.translate(dx, -tractor.height / 2 + 6);
-    ctx.rotate(tractor.steerAngle);
-    ctx.fillRect(-tw / 2, -th / 2, tw, th);
-    ctx.restore();
-  }
-  for (let dx of [-tractor.width / 2 + 4, tractor.width / 2 - 4 - tw]) {
-    ctx.fillRect(dx, tractor.height / 2 - 6 - th, tw, th);
-  }
-
-  ctx.restore();
-}
-
-function drawStatus() {
-  if (parked) {
-    status.textContent = "🚛 駐車成功！";
-  } else {
-    status.textContent = "";
-  }
-  timerEl.textContent = `Time: ${(elapsedTime / 1000).toFixed(2)} 秒`;
-}
-
-function update(timestamp) {
-  if (!startTime) startTime = timestamp;
-  if (!parked) elapsedTime = timestamp - startTime;
-
-  updatePositions();
-
-  if (!parked && checkParking()) {
-    parked = true;
-  }
-
-  drawVehicle();
-  drawStatus();
-
+  draw();
   requestAnimationFrame(update);
 }
 
-document.getElementById("forward").addEventListener("touchstart", () => tractor.speed = 2);
-document.getElementById("forward").addEventListener("touchend", () => tractor.speed = 0);
-document.getElementById("backward").addEventListener("touchstart", () => tractor.speed = -2);
-document.getElementById("backward").addEventListener("touchend", () => tractor.speed = 0);
-document.getElementById("left").addEventListener("touchstart", () => tractor.steer = -1);
-document.getElementById("left").addEventListener("touchend", () => tractor.steer = 0);
-document.getElementById("right").addEventListener("touchstart", () => tractor.steer = 1);
-document.getElementById("right").addEventListener("touchend", () => tractor.steer = 0);
+function draw() {
+  ctx.clearRect(0, 0, w, h);
 
-requestAnimationFrame(update);
+  // トレーラー
+  ctx.fillStyle = trailer.color;
+  ctx.fillRect(trailer.x - trailer.width / 2, trailer.y - trailer.height / 2, trailer.width, trailer.height);
+
+  // トラクター
+  ctx.fillStyle = tractor.color;
+  ctx.fillRect(tractor.x - tractor.width / 2, tractor.y - tractor.height / 2, tractor.width, tractor.height);
+}
+
+// 操作
+document.getElementById("forward").addEventListener("touchstart", () => speed = -2);
+document.getElementById("forward").addEventListener("touchend", () => speed = 0);
+document.getElementById("backward").addEventListener("touchstart", () => speed = 2);
+document.getElementById("backward").addEventListener("touchend", () => speed = 0);
+
+// 開始
+update();
 </script>
 </body>
 </html>
