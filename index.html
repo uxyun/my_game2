@@ -1,37 +1,237 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>仮長方形表示テスト</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+  <title>トレーラー駐車ゲーム（判定＆時間表示）</title>
   <style>
-    body { margin: 0; background: #111; }
+    body { margin: 0; background: #111; overflow: hidden; color: #eee; font-family: sans-serif;}
     canvas { display: block; background: #222; }
+    #controls {
+      position: absolute; bottom: 10px; left: 0; right: 0;
+      display: flex; justify-content: space-between; padding: 0 20px;
+      user-select: none;
+    }
+    .control-group { display: flex; flex-direction: column; gap: 10px; }
+    button {
+      width: 60px; height: 60px; font-size: 24px;
+      background: #444; color: #fff; border: none; border-radius: 8px;
+    }
+    button:active { background: #0af; }
+    #status {
+      position: absolute;
+      top: 10px; left: 50%; transform: translateX(-50%);
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 0 0 6px #0f0;
+    }
+    #timer {
+      position: absolute;
+      top: 50px; left: 50%; transform: translateX(-50%);
+      font-size: 18px;
+      color: #afa;
+    }
   </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="status"></div>
+<div id="timer"></div>
+
+<div id="controls">
+  <div class="control-group">
+    <button id="forward">↑</button>
+    <button id="backward">↓</button>
+  </div>
+  <div class="control-group">
+    <button id="left">←</button>
+    <button id="right">→</button>
+  </div>
+</div>
+
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+let w = window.innerWidth;
+let h = window.innerHeight;
+canvas.width = w;
+canvas.height = h;
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+const status = document.getElementById("status");
+const timerEl = document.getElementById("timer");
 
-  // 赤い長方形（トラクタ仮表示）
-  ctx.save();
-  ctx.translate(canvas.width / 2, canvas.height - 120);
-  ctx.rotate(-Math.PI / 2); // 上向き
-  ctx.fillStyle = "red";
-  ctx.fillRect(-15, -30, 30, 60); // width=30, height=60
-  ctx.restore();
+const tractor = {
+  x: w / 2, y: h - 120,
+  angle: -Math.PI / 2,
+  width: 30, height: 60,
+  speed: 0, steer: 0,
+  wheelBase: 40,
+  steerAngle: 0,
+  maxSteerAngle: Math.PI / 5 // 約35度
+};
 
-  requestAnimationFrame(draw);
+const trailer = {
+  length: 80,
+  angle: -Math.PI / 2,
+  x: 0, y: 0
+};
+
+// 駐車枠パラメータ
+const parking = {
+  x: w - (tractor.wheelBase + trailer.length)/2 - 30,
+  y: h / 2,
+  width: tractor.wheelBase + trailer.length,
+  height: 40,
+  angle: 0 // 水平
+};
+
+let startTime = null;
+let elapsedTime = 0;
+let parked = false;
+
+function updatePositions() {
+  if (parked) return;
+
+  tractor.steerAngle += tractor.steer * 0.04;
+  tractor.steerAngle = Math.max(-tractor.maxSteerAngle, Math.min(tractor.maxSteerAngle, tractor.steerAngle));
+
+  const beta = Math.tan(tractor.steerAngle) * (tractor.speed / tractor.wheelBase);
+  tractor.angle += beta;
+  tractor.x += Math.cos(tractor.angle) * tractor.speed;
+  tractor.y += Math.sin(tractor.angle) * tractor.speed;
+
+  const pinX = tractor.x - Math.cos(tractor.angle) * tractor.wheelBase;
+  const pinY = tractor.y - Math.sin(tractor.angle) * tractor.wheelBase;
+
+  const dx = pinX - trailer.x;
+  const dy = pinY - trailer.y;
+  const desired = Math.atan2(dy, dx);
+  trailer.angle += (desired - trailer.angle) * 0.1;
+
+  trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
+  trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
 }
 
-draw();
+function pointInRect(px, py, rx, ry, rw, rh, rAngle) {
+  // 座標を矩形の局所座標に変換して判定
+  const cosA = Math.cos(-rAngle);
+  const sinA = Math.sin(-rAngle);
+  const dx = px - rx;
+  const dy = py - ry;
+  const localX = dx * cosA - dy * sinA;
+  const localY = dx * sinA + dy * cosA;
+  return localX >= -rw/2 && localX <= rw/2 && localY >= -rh/2 && localY <= rh/2;
+}
+
+function checkParking() {
+  // 角度差（ラジアン）を度に変換
+  const angleDiffTractor = Math.abs(normalizeAngle(tractor.angle - parking.angle));
+  const angleDiffTrailer = Math.abs(normalizeAngle(trailer.angle - parking.angle));
+  const degLimit = 10 * Math.PI / 180; // 10度許容
+
+  // 角度条件クリアか？
+  if (angleDiffTractor > degLimit || angleDiffTrailer > degLimit) return false;
+
+  // トラクタ中心・トレーラー中心が枠内か？
+  if (!pointInRect(tractor.x, tractor.y, parking.x, parking.y, parking.width, parking.height, parking.angle)) return false;
+  if (!pointInRect(trailer.x, trailer.y, parking.x, parking.y, parking.width, parking.height, parking.angle)) return false;
+
+  return true;
+}
+
+function normalizeAngle(angle) {
+  // -π〜πに収める
+  while (angle > Math.PI) angle -= 2*Math.PI;
+  while (angle < -Math.PI) angle += 2*Math.PI;
+  return angle;
+}
+
+function drawVehicle() {
+  ctx.clearRect(0, 0, w, h);
+
+  // --- 駐車枠 ---
+  ctx.save();
+  ctx.translate(parking.x, parking.y);
+  ctx.rotate(parking.angle);
+  ctx.strokeStyle = "#0f0";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-parking.width/2, -parking.height/2, parking.width, parking.height);
+  ctx.restore();
+
+  // --- トレーラー ---
+  ctx.save();
+  ctx.translate(trailer.x, trailer.y);
+  ctx.rotate(trailer.angle);
+  ctx.fillStyle = "#aaa";
+  ctx.fillRect(-40, -20, 80, 40);
+  ctx.restore();
+
+  // --- トラクタ本体 ---
+  ctx.save();
+  ctx.translate(tractor.x, tractor.y);
+  ctx.rotate(tractor.angle);
+  ctx.fillStyle = "red";
+  ctx.fillRect(-tractor.width/2, -tractor.height/2, tractor.width, tractor.height);
+
+  // タイヤ
+  ctx.fillStyle = "#000";
+  const tw = 6, th = 12;
+  const wHalf = tractor.width / 2;
+  const hHalf = tractor.height / 2;
+
+  // 前輪（上端両端）ステア角反映
+  for (let dx of [-wHalf + 4, wHalf - 4]) {
+    ctx.save();
+    ctx.translate(dx, -hHalf + 4);
+    ctx.rotate(tractor.steerAngle);
+    ctx.fillRect(-tw/2, -th/2, tw, th);
+    ctx.restore();
+  }
+
+  // 後輪（下端両端）固定
+  for (let dx of [-wHalf + 4, wHalf - 4]) {
+    ctx.fillRect(dx - tw/2, hHalf - 4 - th/2, tw, th);
+  }
+
+  ctx.restore();
+}
+
+function drawStatus() {
+  if (parked) {
+    status.textContent = "🚛 駐車成功！";
+  } else {
+    status.textContent = "";
+  }
+  timerEl.textContent = `Time: ${(elapsedTime / 1000).toFixed(2)} 秒`;
+}
+
+function update(timestamp) {
+  if (!startTime) startTime = timestamp;
+  if (!parked) elapsedTime = timestamp - startTime;
+
+  updatePositions();
+
+  if (!parked && checkParking()) {
+    parked = true;
+  }
+
+  drawVehicle();
+  drawStatus();
+
+  requestAnimationFrame(update);
+}
+
+// 操作イベント
+document.getElementById("forward").addEventListener("touchstart", () => tractor.speed = 2);
+document.getElementById("forward").addEventListener("touchend", () => tractor.speed = 0);
+document.getElementById("backward").addEventListener("touchstart", () => tractor.speed = -2);
+document.getElementById("backward").addEventListener("touchend", () => tractor.speed = 0);
+document.getElementById("left").addEventListener("touchstart", () => tractor.steer = -1);
+document.getElementById("left").addEventListener("touchend", () => tractor.steer = 0);
+document.getElementById("right").addEventListener("touchstart", () => tractor.steer = 1);
+document.getElementById("right").addEventListener("touchend", () => tractor.steer = 0);
+
+update();
 </script>
 </body>
 </html>
