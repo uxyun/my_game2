@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
-<title>トレーラー駐車ゲーム（トレーラー横長回転版）</title>
+<title>トレーラー駐車ゲーム（90度回転＆後部長さ2倍）</title>
 <style>
   body {
     margin: 0; background: #111; overflow: hidden; color: #eee; font-family: sans-serif;
@@ -103,21 +103,19 @@ const tractor = {
   maxSteerAngle: Math.PI / 5
 };
 
-// トレーラーは横長（幅80、高さ40）に設定
+// トレーラーは横長で後部長さ2倍（幅80、高さ80）
 const trailer = {
   width: 80,
-  length: 40,
+  length: 80,  // ←長さ2倍
   angle: -Math.PI / 2,
   x: 0,
   y: 0
 };
 
-// 初期位置セット（トラクターの後端縦方向連結）
 function resetTrailerPosition() {
   trailer.angle = tractor.angle;
   const pinX = tractor.x - Math.cos(tractor.angle) * tractor.height / 2;
   const pinY = tractor.y - Math.sin(tractor.angle) * tractor.height / 2;
-  // 横長トレーラーなので長さ方向は width の方に合わせる（横方向）
   trailer.x = pinX - Math.cos(trailer.angle) * trailer.length / 2;
   trailer.y = pinY - Math.sin(trailer.angle) * trailer.length / 2;
 }
@@ -203,44 +201,38 @@ function drawVehicle() {
   ctx.strokeRect(-parking.width / 2, -parking.height / 2, parking.width, parking.height);
   ctx.restore();
 
-  // トレーラー（横長に90度回転させて表示）
+  // トレーラー（横長に90度回転）
   ctx.save();
   ctx.translate(trailer.x, trailer.y);
-  ctx.rotate(trailer.angle + Math.PI / 2); // 90度足す
+  ctx.rotate(trailer.angle + Math.PI / 2);
   ctx.fillStyle = "#aaa";
   ctx.fillRect(-trailer.length / 2, -trailer.width / 2, trailer.length, trailer.width);
 
-  // タイヤ
   ctx.fillStyle = "#000";
   const tw = 6, th = 12;
   const wHalf = trailer.length / 2;
   const lHalf = trailer.width / 2;
 
-  // 前輪（横長の短辺側に2本）
   for (let dx of [-wHalf + 4, wHalf - 4]) {
     ctx.fillRect(dx - tw / 2, -lHalf + 4 - th / 2, tw, th);
   }
-  // 後輪（横長の短辺側に2本）
   for (let dx of [-wHalf + 4, wHalf - 4]) {
     ctx.fillRect(dx - tw / 2, lHalf - 4 - th / 2, tw, th);
   }
-
   ctx.restore();
 
-  // トラクター（赤い縦長）
+  // トラクター（縦長 → 横長90度回転）
   ctx.save();
   ctx.translate(tractor.x, tractor.y);
-  ctx.rotate(tractor.angle);
+  ctx.rotate(tractor.angle + Math.PI / 2);
   ctx.fillStyle = "red";
   ctx.fillRect(-tractor.width / 2, -tractor.height / 2, tractor.width, tractor.height);
 
-  // タイヤ
   ctx.fillStyle = "#000";
   const tw2 = 6, th2 = 12;
   const wHalf2 = tractor.width / 2;
   const hHalf2 = tractor.height / 2;
 
-  // 前輪（上端両端）ステア角反映
   for (let dx of [-wHalf2 + 4, wHalf2 - 4]) {
     ctx.save();
     ctx.translate(dx, -hHalf2 + 4);
@@ -249,7 +241,6 @@ function drawVehicle() {
     ctx.restore();
   }
 
-  // 後輪（下端両端）固定
   for (let dx of [-wHalf2 + 4, wHalf2 - 4]) {
     ctx.fillRect(dx - tw2 / 2, hHalf2 - 4 - th2 / 2, tw2, th2);
   }
@@ -282,7 +273,6 @@ function update(timestamp) {
   requestAnimationFrame(update);
 }
 
-// 操作イベント
 document.getElementById("forward").addEventListener("touchstart", () => tractor.speed = 2);
 document.getElementById("forward").addEventListener("touchend", () => tractor.speed = 0);
 document.getElementById("backward").addEventListener("touchstart", () => tractor.speed = -2);
